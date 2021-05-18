@@ -1,18 +1,27 @@
 package middleware
 
-import "github.com/jmoiron/sqlx"
-import "github.com/labstack/echo"
-import "log"
+import (
+	"log"
 
-type DatasourceConfig struct {
-	DriverName     string
-	DataSourceName string
+	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo"
+	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/saiki/golang-echo-sqlx-todo/server/database"
+)
+
+type CustomContext struct {
+	echo.Context
+	DB *sqlx.DB
 }
 
-func DataSourceMiddleware(config DatasourceConfig) echo.MiddlewareFunc {
+func DataSourceMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) (err error) {
-			db, err := sqlx.Open(config.DriverName, config.DataSourceName)
+			ctx := &CustomContext{
+				Context: c,
+			}
+			db, err := database.Open()
 			log.Println("Datasource connected")
 			if err != nil {
 				return err
@@ -21,8 +30,8 @@ func DataSourceMiddleware(config DatasourceConfig) echo.MiddlewareFunc {
 				db.Close()
 				log.Println("Datasource closed")
 			}()
-			c.Set("dataSource", db)
-			err = next(c)
+			ctx.DB = db
+			err = next(ctx)
 			return err
 		}
 	}
